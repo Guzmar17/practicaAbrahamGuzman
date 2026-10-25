@@ -1,0 +1,10 @@
+.venv/
+www/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.uv-cache/
+*.env
+.env*
+state/
+.claude/

@@ -1,0 +1,19 @@
+[Unit]
+Description=ECB A1-P1: microbiology network, oxid-server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# The server tells systemd when it is ready (READY=1) and when it is draining (STOPPING=1).
+Type=notify
+NotifyAccess=all
+User=ecb
+WorkingDirectory=/srv/ecb-microbiology/app
+EnvironmentFile=/etc/ecb-microbiology.env
+# 127.0.0.1: only Caddy, on the same machine, talks to it. CPython because of Polars.
+ExecStart=/srv/ecb-microbiology/app/.venv/bin/oxid-server server.py --addr 127.0.0.1:8000 --runtime cpython
+TimeoutStopSec=20
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,19 @@
+#cloud-config
+# First boot of the VM: Caddy in front (HTTPS on its own), uv for Python 3.14, a user that runs
+# the app, and the pseudonym key — made here, on the machine, and never in the repository.
+package_update: true
+packages:
+  - caddy
+  - curl
+users:
+  - default
+  - name: ecb
+    system: true
+    shell: /usr/sbin/nologin
+    homedir: /srv/ecb-microbiology
+runcmd:
+  - curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin UV_NO_MODIFY_PATH=1 sh
+  - mkdir -p /srv/ecb-microbiology /opt/uv /var/cache/uv
+  - chown ecb:ecb /srv/ecb-microbiology
+  - umask 077 && printf 'ECB_MICROBIOLOGY_KEY=%s\n' "$(openssl rand -hex 32)" > /etc/ecb-microbiology.env
+  - chown root:ecb /etc/ecb-microbiology.env && chmod 640 /etc/ecb-microbiology.env
