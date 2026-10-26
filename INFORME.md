@@ -18,14 +18,14 @@ Per a cada correcció: què has trobat, quantes files, què has decidit.
 
 | problema | files | decisió |
 |---|---:|---|
-| sexe amb espais, minúscules o escrit sencer | | |
-| codi de pacient sense els zeros de l'esquerra (OLV) | | |
-| un bacteri escrit de maneres diferents | | |
-| S/I/R mal escrit, i `pendent` | | |
-| CMI amb `<=`, `>` o coma decimal | | |
-| diàmetre en centímetres (CSA) | | |
+| sexe amb espais, minúscules o escrit sencer | 38 | Retallo espais i normalitzo majúscules/minúscules; `Dona` → `D`, `Home` → `H`. El buit continua sent null. |
+| codi de pacient sense els zeros de l'esquerra (OLV) | 103 | Completo fins a 7 caràcters amb zeros a l'esquerra; el codi continua sent text. |
+| un bacteri escrit de maneres diferents | 1.142 cultius positius (16 grafies) | Normalitzo les grafies als 5 codis de bacteri; `NEG` i `negatiu` passen a null perquè no hi ha creixement. |
+| S/I/R mal escrit, i `pendent` | 74 (14 `pendent`) | Retallo espais i normalitzo caixa i sinònims (`sensible` → `S`, `resistent` → `R`); `pendent` passa a null. |
+| CMI amb `<=`, `>` o coma decimal | 1.383 files úniques (814 amb coma, 631 censurades; 62 amb totes dues) | Converteixo la coma decimal i trec el signe per obtenir el valor numèric; `mic_censored` conserva si hi havia `<=` o `>`. |
+| diàmetre en centímetres (CSA) | 1.181 mesures | Multiplico per 10 només els diàmetres de CSA per expressar-los en mil·límetres. |
 
-- Quin error dona `replace_strict` amb una grafia que no és al diccionari, i quina era:
+- `replace_strict` dona `InvalidOperationError: incomplete mapping specified for replace_strict`; amb el diccionari inicial, la primera grafia no coberta a les dades era `staphylococcus aureus`.
 
 ## R3 · Validació
 
