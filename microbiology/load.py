@@ -40,16 +40,16 @@ def patients(path: Path = DATA / "patients.csv") -> pl.DataFrame:
         infer_schema_length=0,
         null_values=["", "n/a", "NA", "-"],
     )
-    english_names = ["patient", "name", "surnames", "born", "sex", "postcode"]
-    if len(frame.columns) != len(english_names):
-        raise ValueError(
-            f"Expected {len(english_names)} patient columns, got {len(frame.columns)}"
-        )
-
-    # Match each original header with its English name.
-    rename_columns = dict(zip(frame.columns, english_names))
-    frame = frame.rename(rename_columns)
-    return frame.with_columns(pl.all().cast(pl.String))
+    return frame.rename(
+        {
+            "codi_pacient": "patient",
+            "nom": "name",
+            "cognoms": "surnames",
+            "data_naixement": "born",
+            "sexe": "sex",
+            "codi_postal": "postcode",
+        }
+    )
 
 
 def samples(folder: Path = DATA) -> pl.DataFrame:
@@ -64,6 +64,11 @@ def samples(folder: Path = DATA) -> pl.DataFrame:
         infer_schema_length=0,
         null_values=null_values,
     ).with_columns(pl.lit("RBX").alias("hospital"))
+    rbx = rbx.with_columns(
+        pl.col("collected_at").str.to_datetime(format="%Y-%m-%d %H:%M", strict=False),
+        pl.col("received_at").str.to_datetime(format="%Y-%m-%d %H:%M", strict=False),
+        pl.col("reported_at").str.to_datetime(format="%Y-%m-%d %H:%M", strict=False),
+    )
 
     olv = pl.read_csv(
         folder / "samples_olv.csv",
@@ -81,6 +86,11 @@ def samples(folder: Path = DATA) -> pl.DataFrame:
             "microorganisme": "organism",
         }
     ).with_columns(pl.lit("OLV").alias("hospital"))
+    olv = olv.with_columns(
+        pl.col("collected_at").str.to_datetime(format="%d/%m/%Y %H:%M", strict=False),
+        pl.col("received_at").str.to_datetime(format="%d/%m/%Y %H:%M", strict=False),
+        pl.col("reported_at").str.to_datetime(format="%d/%m/%Y %H:%M", strict=False),
+    )
 
     csa = pl.read_csv(
         folder / "samples_csa.csv",
@@ -88,21 +98,18 @@ def samples(folder: Path = DATA) -> pl.DataFrame:
         infer_schema_length=0,
         null_values=null_values,
     ).with_columns(pl.lit("CSA").alias("hospital"))
-
-    date_formats = {
-        "RBX": "%Y-%m-%d %H:%M",
-        "OLV": "%d/%m/%Y %H:%M",
-        "CSA": "%Y-%m-%dT%H:%M:%S",
-    }
-
-    def parse_dates(frame: pl.DataFrame, hospital: str) -> pl.DataFrame:
-        return frame.with_columns(
-            pl.col(column).str.to_datetime(format=date_formats[hospital], strict=False)
-            for column in ["collected_at", "received_at", "reported_at"]
-        ).select(SAMPLE_COLUMNS)
+    csa = csa.with_columns(
+        pl.col("collected_at").str.to_datetime(format="%Y-%m-%dT%H:%M:%S", strict=False),
+        pl.col("received_at").str.to_datetime(format="%Y-%m-%dT%H:%M:%S", strict=False),
+        pl.col("reported_at").str.to_datetime(format="%Y-%m-%dT%H:%M:%S", strict=False),
+    )
 
     return pl.concat(
-        [parse_dates(rbx, "RBX"), parse_dates(olv, "OLV"), parse_dates(csa, "CSA")]
+        [
+            rbx.select(SAMPLE_COLUMNS),
+            olv.select(SAMPLE_COLUMNS),
+            csa.select(SAMPLE_COLUMNS),
+        ]
     )
 
 

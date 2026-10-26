@@ -94,10 +94,15 @@ def antibiogram(raw: pl.DataFrame) -> pl.DataFrame:
         )
         .cast(SIR),
         # Keep whether the reported MIC was bounded before removing its qualifier and decimal comma.
-        pl.col("mic").str.contains(r"<=|>").fill_null(False).alias("mic_censored"),
+        (
+            pl.col("mic").str.starts_with("<=") | pl.col("mic").str.starts_with(">")
+        )
+        .fill_null(False)
+        .alias("mic_censored"),
         pl.col("mic")
-        .str.replace_all(r"<=|>", "")
-        .str.replace_all(",", ".")
+        .str.replace("<=", "", literal=True)
+        .str.replace(">", "", literal=True)
+        .str.replace(",", ".", literal=True)
         .cast(pl.Float64, strict=False),
         # CSA records halo diameter in centimetres; the network uses millimetres.
         pl.when(pl.col("lab") == "CSA")
@@ -112,8 +117,8 @@ def derive(cultures: pl.DataFrame) -> pl.DataFrame:
     collected, in whole years (UInt8)."""
     collected = pl.col("collected_at")
     born = pl.col("born")
-    birthday_not_reached = (collected.dt.month() < born.dt.month()) | (
-        (collected.dt.month() == born.dt.month()) & (collected.dt.day() < born.dt.day())
+    birthday_not_reached = (collected.dt.month() * 100 + collected.dt.day()) < (
+        born.dt.month() * 100 + born.dt.day()
     )
     return cultures.with_columns(
         # Subtract one when the sample date falls before the patient's birthday that year.
