@@ -30,7 +30,15 @@ Per a cada correcció: què has trobat, quantes files, què has decidit.
 ## R3 · Validació
 
 - Files rebutjades per fitxer i per motiu (una mostra amb dos motius, com surt):
+  - `patients`: 4 per `data de naixement sentinella`.
+  - `samples`: 2 per `data de presa fora del període; recepció abans de la presa` i 3 per `recepció abans de la presa`.
+  - `antibiogram`: 2 per `diàmetre impossible`.
 - Un exemple de missatge de Patito quan valides sense `split`:
+  ```text
+  1 validation error for Patient
+  born
+    4 rows does not match custom constraints. (type=value_error.rowvalue)
+  ```
 
 ## R4 · Joins
 

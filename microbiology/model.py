@@ -17,13 +17,16 @@ DIAMETER = (6, 50)
 
 #: A rule is the reason (Catalan, as INFORME.md will quote it) and an expression true for a bad row.
 PATIENT_RULES: dict[str, pl.Expr] = {
-    # TODO R3: "reason": expression true for a bad row
+    "data de naixement sentinella": pl.col("born") == date(1900, 1, 1),
 }
 SAMPLE_RULES: dict[str, pl.Expr] = {
-    # TODO R3
+    "data de presa fora del període": (pl.col("collected_at") < PERIOD[0])
+    | (pl.col("collected_at") >= PERIOD[1]),
+    "recepció abans de la presa": pl.col("received_at") < pl.col("collected_at"),
 }
 TEST_RULES: dict[str, pl.Expr] = {
-    # TODO R3
+    "diàmetre impossible": (pl.col("diameter") < DIAMETER[0])
+    | (pl.col("diameter") > DIAMETER[1]),
 }
 
 
@@ -31,22 +34,63 @@ def split(df: pl.DataFrame, rules: dict[str, pl.Expr]) -> tuple[pl.DataFrame, pl
     """(kept, rejected). rejected has every column of df plus `reason`, the names of every rule
     the row broke joined by "; " in the order of `rules`. A rule that evaluates to null does
     not reject the row."""
-    raise NotImplementedError("R3")
+    reason = (
+        pl.concat_str(
+            [
+                pl.when(expression).then(pl.lit(name))
+                for name, expression in rules.items()
+            ],
+            separator="; ",
+            ignore_nulls=True,
+        )
+        if rules
+        else pl.lit("")
+    )
+    checked = df.with_columns(reason.alias("reason"))
+    rejected_rows = pl.col("reason").is_not_null() & (pl.col("reason") != "")
+    rejected = checked.filter(rejected_rows)
+    kept = checked.filter(~rejected_rows).drop("reason")
+    return kept, rejected
 
 
 class Patient(pt.Model):
     """A patient as clean.patients leaves them, after split(PATIENT_RULES)."""
 
-    pass  # TODO R3: one annotated field per column, with its Field(...) rules
+    patient: str
+    name: str
+    surnames: str
+    born: date = pt.Field(constraints=pt.field != date(1900, 1, 1))
+    sex: Literal["D", "H"] | None
+    postcode: str
 
 
 class Sample(pt.Model):
     """A sample as clean.samples leaves it, after split(SAMPLE_RULES)."""
 
-    pass  # TODO R3: one annotated field per column, with its Field(...) rules
+    sample_id: str
+    hospital: str
+    patient: str = pt.Field(pattern=r"^\d{7}$")
+    specimen: Literal["orina", "sang", "ferida", "esput"]
+    collected_at: datetime = pt.Field(
+        ge=PERIOD[0],
+        lt=PERIOD[1],
+        constraints=(pt.field >= PERIOD[0]) & (pt.field < PERIOD[1]),
+    )
+    received_at: datetime = pt.Field(
+        constraints=pt.field >= pl.col("collected_at")
+    )
+    reported_at: datetime | None
+    organism: Literal["ECO", "KPN", "PAE", "SAU", "EFA"] | None
+    tat_hours: float | None
 
 
 class Susceptibility(pt.Model):
     """One antibiotic tested on one sample, as clean.antibiogram leaves it, after split(TEST_RULES)."""
 
-    pass  # TODO R3: one annotated field per column, with its Field(...) rules
+    sample_id: str
+    lab: str
+    antibiotic: str
+    mic: float | None
+    diameter: float | None = pt.Field(ge=DIAMETER[0], le=DIAMETER[1])
+    sir: Literal["S", "I", "R"] | None
+    mic_censored: bool
