@@ -34,22 +34,24 @@ def split(df: pl.DataFrame, rules: dict[str, pl.Expr]) -> tuple[pl.DataFrame, pl
     """(kept, rejected). rejected has every column of df plus `reason`, the names of every rule
     the row broke joined by "; " in the order of `rules`. A rule that evaluates to null does
     not reject the row."""
-    reason = (
-        pl.concat_str(
-            [
-                pl.when(expression).then(pl.lit(name))
-                for name, expression in rules.items()
-            ],
+    reason_parts = []
+    for name, expression in rules.items():
+        reason_parts.append(pl.when(expression).then(pl.lit(name)))
+
+    if reason_parts:
+        reason = pl.concat_str(
+            reason_parts,
             separator="; ",
             ignore_nulls=True,
         )
-        if rules
-        else pl.lit("")
-    )
+    else:
+        reason = pl.lit("")
+
     checked = df.with_columns(reason.alias("reason"))
-    rejected_rows = pl.col("reason").is_not_null() & (pl.col("reason") != "")
-    rejected = checked.filter(rejected_rows)
-    kept = checked.filter(~rejected_rows).drop("reason")
+    has_reason = pl.col("reason").is_not_null() & (pl.col("reason") != "")
+
+    rejected = checked.filter(has_reason)
+    kept = checked.filter(~has_reason).drop("reason")
     return kept, rejected
 
 
