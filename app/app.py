@@ -24,7 +24,14 @@ picked = Signal(None)
 
 def samples_by_hospital(hospitals):
     """Bars: samples per hospital, from /api/hospitals. Marks expected: 3, one per hospital."""
-    return h.p("TODO R9: mostres per hospital")
+    return chart(
+        hospitals(),
+        "bar",
+        x=X("hospital:N").title("Hospital"),
+        y=Y("samples:Q").title("Mostres"),
+        title="Mostres per hospital",
+        description="Nombre de mostres de cada hospital de la xarxa, gener–juliol 2026.",
+    )
 
 
 def choose(name):
@@ -47,16 +54,36 @@ def week_title():
 
 def positives_by_week(weekly):
     """A line: the chosen hospital's positive cultures per week, from /api/weekly. Marks expected: one line, 26 weeks."""
-    return h.p("TODO R9: cultius positius per setmana de l'hospital triat")
+    # The title reads hospital(), so the chart redraws with the button that changes it.
+    return chart(
+        weekly(),
+        "line",
+        x=X("week:T").title("Setmana"),
+        y=Y("positives:Q").title("Cultius positius"),
+        title=week_title(),
+        description="Cultius positius de cada setmana a l'hospital triat; una setmana sense cap és 0.",
+    )
 
 
 def scatter(points):
     """Points: the disc's diameter against log2 of the MIC from /api/points, with a brush. Marks expected: one per row."""
-    return h.p("TODO R9: dispersió diàmetre–CMI amb brush")
+    # brush=picked: when a box is dragged, picked gets the rows inside it.
+    return chart(
+        points(),
+        "point",
+        x=X("mic_log2:Q").title("log2 CMI (mg/L)"),
+        y=Y("diameter:Q").title("Diàmetre (mm)"),
+        title="CMI i diàmetre",
+        description="E. coli i ciprofloxacina: diàmetre del halo contra log2 de la CMI, una prova per punt.",
+        brush=picked,
+    )
 
 
 def selected():
-    return "TODO R9: quantes proves hi ha dins el requadre"
+    box = picked()
+    if box is None:
+        return "Arrossega un requadre sobre la dispersió per comptar-ne les proves."
+    return f"{len(box['rows'])} proves dins el requadre."
 
 
 def resistance_bars(rates):

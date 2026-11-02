@@ -19,39 +19,66 @@ ANALYSIS = pipeline.run()
 RELEASE, SUPPRESSED = privacy.anonymise(ANALYSIS.cultures, privacy.key())
 HOSPITALS = summary.by_hospital(ANALYSIS.cultures).drop("patients")
 WEEKLY = summary.weekly(ANALYSIS.cultures).with_columns(pl.col("week").dt.strftime("%Y-%m-%d"))
-TAT = None  # TODO R8: turnaround in buckets of 12 hours: bucket (its first hour), samples
+# Only reported samples have a turnaround; each one goes to the 12-hour bucket it starts in.
+TAT = (
+    ANALYSIS.cultures.filter(pl.col("tat_hours").is_not_null())
+    .with_columns((pl.col("tat_hours") // 12 * 12).cast(pl.Int64).alias("bucket"))
+    .group_by("bucket")
+    .agg(pl.len().alias("samples"))
+    .sort("bucket")
+)
 RATES = {}  # TODO R12: organism code → its rates() checked by resistance.Rate
 
 
 @app.get("/api/hospitals")
 async def hospitals():
     """One row per hospital: samples, share positive, median turnaround in hours."""
-    raise NotImplementedError("R8")
+    return HOSPITALS.to_dicts()
 
 
 @app.get("/api/weekly")
 async def weekly(hospital: str = "RBX"):
     """Positive cultures per week in one hospital, every week of the half year; 404 for a hospital that does not exist."""
-    raise NotImplementedError("R8")
+    rows = WEEKLY.filter(pl.col("hospital") == hospital)
+    if rows.height == 0:
+        raise HTTPError(404, "unknown hospital: " + hospital)
+    return rows.select("week", "positives").to_dicts()
 
 
 @app.get("/api/statistic")
 async def statistic_():
     """The turnaround described (statistic.describe), the diameter–MIC correlation, and the release's k and suppressed people."""
-    raise NotImplementedError("R8")
+    # Only figures: no row of any table leaves here.
+    return {
+        "tat": statistic.describe(ANALYSIS.cultures["tat_hours"]),
+        "correlation": statistic.correlation(ANALYSIS.isolates),
+        "k": privacy.k_anonymity(RELEASE),
+        "suppressed": SUPPRESSED,
+    }
 
 
 @app.get("/api/points")
 async def points():
     """E. coli and ciprofloxacin: log2 of the MIC (mic_log2) and the diameter of every test that has
     both — the two columns the scatter draws, nothing else."""
-    raise NotImplementedError("R8")
+    # The same filter as statistic.correlation, and only the two columns the scatter draws.
+    tests = ANALYSIS.isolates.filter((pl.col("organism") == "ECO") & (pl.col("antibiotic") == "CIP"))
+    tests = tests.drop_nulls(["diameter", "mic"])
+    return tests.select(pl.col("mic").log(2).alias("mic_log2"), pl.col("diameter")).to_dicts()
 
 
 @app.get("/api/tat.svg")
 async def tat_svg():
     """The turnaround histogram, drawn here: an <img> needs no Python in the page."""
-    raise NotImplementedError("R8")
+    picture = chart(
+        TAT.to_dicts(),
+        "bar",
+        x=X("bucket:O").title("Temps de resposta (h, trams de 12 h)"),
+        y=Y("samples:Q").title("Mostres"),
+        title="Temps de resposta del laboratori",
+        render="svg",
+    )
+    return Response(render_to_string(picture), media_type="image/svg+xml")
 
 
 @app.get("/api/resistance")

@@ -117,9 +117,10 @@ def derive(cultures: pl.DataFrame) -> pl.DataFrame:
     collected, in whole years (UInt8)."""
     collected = pl.col("collected_at")
     born = pl.col("born")
-    birthday_not_reached = (collected.dt.month() * 100 + collected.dt.day()) < (
-        born.dt.month() * 100 + born.dt.day()
-    )
+    # month() and day() are Int8: cast them first, or month * 100 overflows (12 * 100 → -80).
+    birthday_not_reached = (
+        collected.dt.month().cast(pl.Int32) * 100 + collected.dt.day().cast(pl.Int32)
+    ) < (born.dt.month().cast(pl.Int32) * 100 + born.dt.day().cast(pl.Int32))
     return cultures.with_columns(
         # Subtract one when the sample date falls before the patient's birthday that year.
         (collected.dt.year() - born.dt.year() - birthday_not_reached.cast(pl.Int32))
